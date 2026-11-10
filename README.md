@@ -195,6 +195,43 @@ public function loans(): HasMany
    ```
 
    Buka `http://127.0.0.1:8000` di browser.
+   
+## Database
+
+File database tersedia di `database/peminjaman_buku.sql`.
+Import lewat phpMyAdmin (tab Import), atau jalankan `php artisan migrate`.
+## Laporan Evaluasi
+
+### Tujuan
+Membuat aplikasi berbasis Laravel untuk mengelola data buku dan transaksi peminjaman buku perpustakaan.
+
+### Hasil yang Dicapai
+- Perancangan database: tabel `users`, `books`, dan `loans` beserta ERD (relasi one-to-many).
+- Migration dan model `Book`, `Loan`, `User`, dengan relasi `Loan` ke `User` dan `Book`.
+- Pembedaan peran pengguna lewat kolom `role` (`admin` dan `siswa`).
+- Dokumentasi: deskripsi program, dokumentasi fungsi, dan panduan debugging.
+- File database `database/peminjaman_buku.sql`.
+- Project tersimpan di GitHub.
+
+### Kendala
+- Push ke GitHub sempat gagal (`Repository not found` dan `rejected`), diselesaikan dengan memperbaiki remote dan `git pull --rebase`.
+- Urutan migration perlu dicek agar tabel `loans` dibuat setelah `users` dan `books`.
+
+### Kekurangan
+- Controller, route, dan tampilan untuk books dan loans belum dibuat.
+- Relasi `loans()` pada model `Book` dan `User` belum ada.
+- Logika stok dan perhitungan denda belum diimplementasikan.
+- Belum ada pengujian fitur.
+
+### Rencana Perbaikan
+1. Tambahkan relasi `hasMany` pada `Book` dan `User`.
+2. Buat `BookController` (CRUD) dan `LoanController` (pinjam, kembali, denda).
+3. Kurangi stok saat pinjam dan tambah saat kembali, di dalam `DB::transaction()`.
+4. Gunakan konstanta atau enum untuk `status`.
+5. Tambahkan login dan pembatasan akses admin lewat `isAdmin()`.
+
+### Kesimpulan
+Fondasi aplikasi (struktur database, model, dan dokumentasi) sudah selesai. Tahap berikutnya adalah mengimplementasikan fitur utama agar aplikasi dapat digunakan.
 
 ## Lisensi
 
