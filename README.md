@@ -98,20 +98,16 @@ erDiagram
 
 ## Debugging
 
-### Temuan pada kode saat ini
+Catatan masalah yang ditemukan pada kode, penyebabnya, dan cara memperbaikinya.
 
-| No | Masalah | Dampak | Perbaikan |
-|----|---------|--------|-----------|
-| 1 | Model `Book` belum punya relasi ke `Loan`. | `$book->loans` menghasilkan error karena relasi tidak ditemukan. | Tambahkan `hasMany` (lihat di bawah). |
-| 2 | Model `User` belum punya relasi ke `Loan`. | `$user->loans` tidak bisa dipakai untuk riwayat pinjam siswa. | Tambahkan `hasMany` (lihat di bawah). |
-| 3 | Belum ada controller dan route untuk books dan loans. | Fitur belum bisa diakses dari browser. | Buat `BookController` dan `LoanController`, lalu daftarkan di `routes/web.php`. |
-| 4 | Nilai `status` ditulis sebagai string bebas. | Mudah typo sehingga filter tidak cocok. | Gunakan konstanta atau enum PHP. |
-| 5 | Stok belum terhubung dengan peminjaman. | Stok bisa tidak sinkron atau minus. | Kurangi stok saat pinjam, tambah saat kembali, di dalam `DB::transaction()`. |
+### 1. Relasi balik belum ada pada `Book` dan `User`
 
-Perbaikan temuan 1 dan 2:
+- **Gejala:** `$book->loans` atau `$user->loans` menghasilkan error karena relasi tidak ditemukan.
+- **Penyebab:** hanya model `Loan` yang punya relasi (`belongsTo`), sedangkan sisi sebaliknya belum dibuat.
+- **Perbaikan:** tambahkan `hasMany` di kedua model.
 
 ```php
-// app/Models/Book.php
+// app/Models/Book.php dan app/Models/User.php
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 public function loans(): HasMany
@@ -120,34 +116,104 @@ public function loans(): HasMany
 }
 ```
 
-```php
-// app/Models/User.php
-use Illuminate\Database\Eloquent\Relations\HasMany;
+### 2. Nilai `status` mudah salah ketik
 
-public function loans(): HasMany
-{
-    return $this->hasMany(Loan::class);
-}
+- **Gejala:** data peminjaman tidak muncul saat difilter, misalnya mencari `dikembalikan` padahal tersimpan `dikembali`.
+- **Penyebab:** `status` berupa string bebas.
+- **Perbaikan:** simpan nilainya sebagai konstanta dan pakai di seluruh kode.
+
+```php
+// app/Models/Loan.php
+public const STATUS_DIPINJAM = 'dipinjam';
+public const STATUS_KEMBALI  = 'dikembalikan';
+
+// pemakaian
+Loan::where('status', Loan::STATUS_DIPINJAM)->get();
 ```
 
-### Error umum dan solusinya
+### 3. Stok buku belum terhubung dengan peminjaman
 
-| Error | Penyebab | Solusi |
-|-------|----------|--------|
-| `Base table or view not found` / `Failed to open the referenced table` saat migrate | Migration `loans` berjalan sebelum `users` atau `books` karena timestamp nama file lebih awal. | Pastikan nama file migration `loans` punya timestamp paling akhir, lalu `php artisan migrate:fresh`. |
-| `SQLSTATE[23000]: Integrity constraint violation` | `user_id` atau `book_id` yang dimasukkan tidak ada di tabel induk. | Pastikan data user dan buku sudah ada sebelum membuat peminjaman. |
-| `MassAssignmentException` | Kolom belum ada di `$fillable`. | Tambahkan kolom ke `$fillable` pada model. |
-| `Call to undefined relationship` | Relasi belum didefinisikan di model. | Tambahkan fungsi relasi (lihat perbaikan di atas). |
-| `Class "App\Models\Loan" not found` | Namespace atau nama file salah. | Cek `namespace` dan nama file, lalu `composer dump-autoload`. |
+- **Gejala:** stok tidak berubah setelah buku dipinjam, atau bisa menjadi minus.
+- **Penyebab:** belum ada logika yang mengubah `stock` saat pinjam dan kembali.
+- **Usulan perbaikan:** cek stok, kurangi stok, dan simpan peminjaman dalam satu transaksi.
+
+```php
+use Illuminate\Support\Facades\DB;
+
+DB::transaction(function () use ($book, $user) {
+    if ($book->stock < 1) {
+        abort(422, 'Stok buku habis');
+    }
+
+    $book->decrement('stock');
+
+    Loan::create([
+        'user_id'   => $user->id,
+        'book_id'   => $book->id,
+        'loan_date' => now(),
+        'due_date'  => now()->addDays(7),
+        'status'    => Loan::STATUS_DIPINJAM,
+    ]);
+});
+```
+
+### 4. Controller dan route belum dibuat
+
+- **Gejala:** fitur books dan loans tidak bisa dibuka dari browser (halaman 404).
+- **Penyebab:** `routes/web.php` baru berisi halaman `/`.
+- **Perbaikan:** buat `BookController` dan `LoanController`, lalu daftarkan route-nya.
+
+```bash
+php artisan make:controller BookController --resource
+php artisan make:controller LoanController
+```
 
 ### Cara melacak bug
 
-- Cetak nilai variabel: `dd($loan);` atau `dump($request->all());`
-- Catat ke log: `Log::info('data pinjam', $data);`, lalu baca `storage/logs/laravel.log`.
-- Cek daftar route: `php artisan route:list`
-- Cek status migration: `php artisan migrate:status`
-- Uji model lewat console: `php artisan tinker`, misalnya `App\Models\Loan::with('user','book')->first();`
-- Aktifkan `APP_DEBUG=true` di `.env` saat pengembangan agar pesan error lengkap tampil.
+| Kebutuhan | Perintah |
+|-----------|----------|
+| Menampilkan isi variabel lalu menghentikan program | `dd($loan);` |
+| Menampilkan isi variabel tanpa menghentikan program | `dump($request->all());` |
+| Mencatat ke log | `Log::info('data pinjam', $data);` lalu baca `storage/logs/laravel.log` |
+| Melihat daftar route | `php artisan route:list` |
+| Melihat status migration | `php artisan migrate:status` |
+| Mencoba model langsung | `php artisan tinker` lalu `Loan::with('user','book')->first();` |
+| Menampilkan pesan error lengkap | atur `APP_DEBUG=true` di `.env` (hanya saat pengembangan) |
+
+## Error Umum
+
+**`SQLSTATE[HY000] [2002] Connection refused`**
+MySQL belum menyala. Jalankan MySQL di XAMPP Control Panel, lalu cek `DB_HOST` dan `DB_PORT` di `.env`.
+
+**`SQLSTATE[HY000] [1049] Unknown database`**
+Database belum dibuat atau namanya berbeda. Buat database di phpMyAdmin dan samakan dengan `DB_DATABASE` di `.env`.
+
+**`SQLSTATE[HY000] [1045] Access denied for user`**
+Username atau password database di `.env` salah. Pada XAMPP bawaan: `DB_USERNAME=root` dan `DB_PASSWORD=` (kosong).
+
+**`Failed to open the referenced table` / `Base table or view not found` saat migrate**
+Migration `loans` berjalan sebelum `users` atau `books`. Pastikan timestamp pada nama file migration `loans` paling akhir, lalu jalankan `php artisan migrate:fresh`.
+
+**`SQLSTATE[23000]: Integrity constraint violation`**
+`user_id` atau `book_id` yang dimasukkan tidak ada di tabel induk. Pastikan data user dan buku sudah ada sebelum membuat peminjaman.
+
+**`MassAssignmentException` atau data tidak tersimpan**
+Kolom belum ada di `$fillable` pada model. Tambahkan kolom tersebut.
+
+**`No application encryption key has been specified`**
+Jalankan `php artisan key:generate`.
+
+**`419 Page Expired` saat submit form**
+Form belum memiliki token CSRF. Tambahkan `@csrf` di dalam tag `<form>`.
+
+**`Class "App\Models\Loan" not found`**
+Namespace atau nama file tidak sesuai. Periksa keduanya, lalu jalankan `composer dump-autoload`.
+
+**`404 Not Found` pada halaman tertentu**
+Route belum terdaftar atau salah ketik. Periksa dengan `php artisan route:list`.
+
+**Perubahan `.env` tidak terbaca**
+Jalankan `php artisan config:clear`.
 
 ## Instalasi
 
