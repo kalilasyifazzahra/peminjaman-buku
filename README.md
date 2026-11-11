@@ -1,10 +1,10 @@
 # Aplikasi Peminjaman Buku
 
-Aplikasi web berbasis Laravel untuk mengelola data buku dan peminjaman buku perpustakaan sekolah.
+Aplikasi web berbasis Laravel untuk mengelola data buku dan peminjaman buku di perpustakaan sekolah.
 
 ## Deskripsi Program
 
-Aplikasi ini mencatat data buku, data pengguna, dan transaksi peminjaman. Ada dua jenis pengguna, ditentukan kolom `role` pada tabel `users`:
+Aplikasi ini mencatat data buku, data pengguna, dan transaksi peminjaman. Ada dua jenis pengguna, ditentukan oleh kolom `role` pada tabel `users`:
 
 - **admin**: mengelola data buku dan peminjaman.
 - **siswa** (default): pengguna yang meminjam buku. Memiliki data `kelas`.
@@ -105,7 +105,7 @@ erDiagram
 | 1 | Model `Book` belum punya relasi ke `Loan`. | `$book->loans` menghasilkan error karena relasi tidak ditemukan. | Tambahkan `hasMany` (lihat di bawah). |
 | 2 | Model `User` belum punya relasi ke `Loan`. | `$user->loans` tidak bisa dipakai untuk riwayat pinjam siswa. | Tambahkan `hasMany` (lihat di bawah). |
 | 3 | Belum ada controller dan route untuk books dan loans. | Fitur belum bisa diakses dari browser. | Buat `BookController` dan `LoanController`, lalu daftarkan di `routes/web.php`. |
-| 4 | Nilai `status` ditulis sebagai string bebas. | Mudah typo (`dikembalikan` vs `dikembalikan `) sehingga filter tidak cocok. | Gunakan konstanta atau enum PHP. |
+| 4 | Nilai `status` ditulis sebagai string bebas. | Mudah typo sehingga filter tidak cocok. | Gunakan konstanta atau enum PHP. |
 | 5 | Stok belum terhubung dengan peminjaman. | Stok bisa tidak sinkron atau minus. | Kurangi stok saat pinjam, tambah saat kembali, di dalam `DB::transaction()`. |
 
 Perbaikan temuan 1 dan 2:
@@ -195,17 +195,20 @@ public function loans(): HasMany
    ```
 
    Buka `http://127.0.0.1:8000` di browser.
-   
+
 ## Database
 
 File database tersedia di `database/peminjaman_buku.sql`.
 Import lewat phpMyAdmin (tab Import), atau jalankan `php artisan migrate`.
+
 ## Laporan Evaluasi
 
 ### Tujuan
+
 Membuat aplikasi berbasis Laravel untuk mengelola data buku dan transaksi peminjaman buku perpustakaan.
 
 ### Hasil yang Dicapai
+
 - Perancangan database: tabel `users`, `books`, dan `loans` beserta ERD (relasi one-to-many).
 - Migration dan model `Book`, `Loan`, `User`, dengan relasi `Loan` ke `User` dan `Book`.
 - Pembedaan peran pengguna lewat kolom `role` (`admin` dan `siswa`).
@@ -214,16 +217,19 @@ Membuat aplikasi berbasis Laravel untuk mengelola data buku dan transaksi peminj
 - Project tersimpan di GitHub.
 
 ### Kendala
+
 - Push ke GitHub sempat gagal (`Repository not found` dan `rejected`), diselesaikan dengan memperbaiki remote dan `git pull --rebase`.
 - Urutan migration perlu dicek agar tabel `loans` dibuat setelah `users` dan `books`.
 
 ### Kekurangan
+
 - Controller, route, dan tampilan untuk books dan loans belum dibuat.
 - Relasi `loans()` pada model `Book` dan `User` belum ada.
 - Logika stok dan perhitungan denda belum diimplementasikan.
 - Belum ada pengujian fitur.
 
 ### Rencana Perbaikan
+
 1. Tambahkan relasi `hasMany` pada `Book` dan `User`.
 2. Buat `BookController` (CRUD) dan `LoanController` (pinjam, kembali, denda).
 3. Kurangi stok saat pinjam dan tambah saat kembali, di dalam `DB::transaction()`.
@@ -231,6 +237,7 @@ Membuat aplikasi berbasis Laravel untuk mengelola data buku dan transaksi peminj
 5. Tambahkan login dan pembatasan akses admin lewat `isAdmin()`.
 
 ### Kesimpulan
+
 Fondasi aplikasi (struktur database, model, dan dokumentasi) sudah selesai. Tahap berikutnya adalah mengimplementasikan fitur utama agar aplikasi dapat digunakan.
 
 ## Lisensi
